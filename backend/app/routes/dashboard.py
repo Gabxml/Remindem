@@ -2,10 +2,7 @@ import datetime as dt
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
-from ..database import get_db
 from ..deps import get_current_user
 from ..models import Reminder, User
 from ..recurrence import occurrences_between
@@ -30,16 +27,13 @@ def date_range(view: str, anchor: dt.date) -> tuple[dt.date, dt.date]:
 def get_dashboard(
     view: Literal["day", "week", "month"] = "day",
     on: dt.date | None = Query(default=None, description="Any date inside the period; defaults to today"),
-    db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     first, last = date_range(view, on or dt.date.today())
     range_start = dt.datetime.combine(first, dt.time.min)
     range_end = dt.datetime.combine(last + dt.timedelta(days=1), dt.time.min)
 
-    reminders = db.scalars(
-        select(Reminder).where(Reminder.user_id == user.id, Reminder.start_at < range_end)
-    ).all()
+    reminders = Reminder.objects(user=user, start_at__lt=range_end)
 
     occurrences = [
         Occurrence(

@@ -1,31 +1,23 @@
+import mongomock
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+from mongoengine import connect, disconnect
 
-from app.database import Base, get_db
 from app.main import app
 
 
 @pytest.fixture()
 def client():
-    engine = create_engine(
-        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    # Each test gets a fresh in-memory MongoDB; no server required.
+    disconnect(alias="default")
+    connect(
+        "remindem_test",
+        mongo_client_class=mongomock.MongoClient,
+        alias="default",
+        uuidRepresentation="standard",
     )
-    Base.metadata.create_all(engine)
-    Session = sessionmaker(bind=engine, autoflush=False)
-
-    def override_db():
-        db = Session()
-        try:
-            yield db
-        finally:
-            db.close()
-
-    app.dependency_overrides[get_db] = override_db
     yield TestClient(app)
-    app.dependency_overrides.clear()
+    disconnect(alias="default")
 
 
 def make_user(client, email="a@example.com", name="Ana"):

@@ -4,6 +4,7 @@ import hmac
 import os
 
 import jwt
+from bson import ObjectId
 
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-secret-change-me-before-deploying-0000")
 ALGORITHM = "HS256"
@@ -27,7 +28,7 @@ def verify_password(password: str, stored: str) -> bool:
     return hmac.compare_digest(digest.hex(), digest_hex)
 
 
-def create_access_token(user_id: int) -> str:
+def create_access_token(user_id: ObjectId) -> str:
     payload = {
         "sub": str(user_id),
         "exp": dt.datetime.now(dt.timezone.utc) + TOKEN_LIFETIME,
@@ -35,9 +36,10 @@ def create_access_token(user_id: int) -> str:
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
-def decode_access_token(token: str) -> int | None:
+def decode_access_token(token: str) -> str | None:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return int(payload["sub"])
-    except (jwt.PyJWTError, KeyError, ValueError):
+        sub = payload["sub"]
+    except (jwt.PyJWTError, KeyError):
         return None
+    return sub if isinstance(sub, str) and ObjectId.is_valid(sub) else None

@@ -1,45 +1,44 @@
 import datetime as dt
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from .database import Base
+from mongoengine import (
+    CASCADE,
+    DateField,
+    DateTimeField,
+    Document,
+    IntField,
+    ReferenceField,
+    StringField,
+)
 
 
 def _now() -> dt.datetime:
     return dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
 
 
-class User(Base):
-    __tablename__ = "users"
+class User(Document):
+    email = StringField(required=True, unique=True, max_length=255)
+    name = StringField(required=True, max_length=100)
+    password_hash = StringField(required=True, max_length=255)
+    created_at = DateTimeField(default=_now)
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
-    name: Mapped[str] = mapped_column(String(100))
-    password_hash: Mapped[str] = mapped_column(String(255))
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=_now)
-
-    reminders: Mapped[list["Reminder"]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
-    )
+    meta = {"collection": "users"}
 
 
-class Reminder(Base):
+class Reminder(Document):
     """
     start_at is a naive "wall-clock" datetime (9:00 means 9:00 for the user,
     wherever they are). Recurrence repeats from start_at every `interval` units.
     """
 
-    __tablename__ = "reminders"
+    user = ReferenceField(User, required=True, reverse_delete_rule=CASCADE)
+    title = StringField(required=True, max_length=200)
+    description = StringField(default="", max_length=2000)
+    start_at = DateTimeField(required=True)
+    recurrence = StringField(
+        default="none", choices=("none", "daily", "weekly", "monthly", "yearly")
+    )
+    interval = IntField(default=1, min_value=1, max_value=365)
+    end_date = DateField(null=True)
+    created_at = DateTimeField(default=_now)
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
-    title: Mapped[str] = mapped_column(String(200))
-    description: Mapped[str] = mapped_column(Text, default="")
-    start_at: Mapped[dt.datetime] = mapped_column(DateTime, index=True)
-    recurrence: Mapped[str] = mapped_column(String(10), default="none")  # none|daily|weekly|monthly|yearly
-    interval: Mapped[int] = mapped_column(Integer, default=1)
-    end_date: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=_now)
-
-    user: Mapped[User] = relationship(back_populates="reminders")
+    meta = {"collection": "reminders", "indexes": ["start_at", "user"]}

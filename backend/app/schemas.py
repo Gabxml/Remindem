@@ -1,9 +1,20 @@
 import datetime as dt
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    EmailStr,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 Recurrence = Literal["none", "daily", "weekly", "monthly", "yearly"]
+
+# MongoEngine ids are ObjectIds; expose them to clients as strings.
+MongoId = Annotated[str, BeforeValidator(str)]
 
 
 class UserCreate(BaseModel):
@@ -19,7 +30,7 @@ class UserLogin(BaseModel):
 
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    id: int
+    id: MongoId
     email: EmailStr
     name: str
 
@@ -64,7 +75,7 @@ class ReminderIn(BaseModel):
 
 class ReminderOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    id: int
+    id: MongoId
     title: str
     description: str
     start_at: dt.datetime
@@ -74,7 +85,7 @@ class ReminderOut(BaseModel):
 
 
 class Occurrence(BaseModel):
-    reminder_id: int
+    reminder_id: MongoId
     title: str
     description: str
     occurs_at: dt.datetime

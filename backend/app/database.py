@@ -1,22 +1,15 @@
 import os
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from mongoengine import connect, disconnect
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./reminders.db")
-_connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
-
-engine = create_engine(DATABASE_URL, connect_args=_connect_args)
-SessionLocal = sessionmaker(bind=engine, autoflush=False)
+MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/remindem")
 
 
-class Base(DeclarativeBase):
-    pass
+def init_db() -> None:
+    """Open MongoEngine's default connection. Safe to call more than once."""
+    disconnect(alias="default")
+    connect(host=MONGODB_URI, alias="default", uuidRepresentation="standard")
 
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+def close_db() -> None:
+    disconnect(alias="default")

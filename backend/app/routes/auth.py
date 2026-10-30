@@ -1,8 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from mongoengine import NotUniqueError
 
-from ..database import get_db
 from ..deps import get_current_user
 from ..models import User
 from ..schemas import Token, UserCreate, UserLogin, UserOut
@@ -16,20 +14,23 @@ def _token_for(user: User) -> Token:
 
 
 @router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
-def register(data: UserCreate, db: Session = Depends(get_db)):
+def register(data: UserCreate):
     email = data.email.lower()
-    if db.scalar(select(User).where(User.email == email)):
+    if User.objects(email=email).first():
         raise HTTPException(status.HTTP_409_CONFLICT, "An account with this email already exists")
     user = User(email=email, name=data.name.strip(), password_hash=hash_password(data.password))
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+    try:
+        user.save()
+    except NotUniqueError:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "An account with this email already exists"
+        ) from None
     return _token_for(user)
 
 
 @router.post("/login", response_model=Token)
-def login(data: UserLogin, db: Session = Depends(get_db)):
-    user = db.scalar(select(User).where(User.email == data.email.lower()))
+def login(data: UserLogin):
+    user = User.objects(email=data.email.lower()).first()
     if not user or not verify_password(data.password, user.password_hash):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Incorrect email or password")
     return _token_for(user)

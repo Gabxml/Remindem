@@ -4,14 +4,15 @@ from contextlib import asynccontextmanager
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .database import Base, engine
+from .database import close_db, init_db
 from .routes import auth, dashboard, reminders
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    Base.metadata.create_all(engine)
+    init_db()
     yield
+    close_db()
 
 
 app = FastAPI(title="Reminder Calendar", lifespan=lifespan)
