@@ -7,8 +7,8 @@ def add(client, auth, title, start, **kw):
     return r.json()
 
 
-def dash(client, auth, view, on):
-    r = client.get("/api/dashboard", params={"view": view, "on": on}, headers=auth)
+def dash(client, auth, view, on, **params):
+    r = client.get("/api/dashboard", params={"view": view, "on": on, **params}, headers=auth)
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -116,6 +116,52 @@ def test_sorted_by_time(client, auth):
     add(client, auth, "A", "2026-10-21T08:30")
     add(client, auth, "Daily", "2026-10-01T12:00", recurrence="daily")
     assert [o["title"] for o in dash(client, auth, "day", "2026-10-21")["occurrences"]] == ["A", "Daily", "B"]
+
+
+# ---- separate recurring views from the calendar ----
+
+def test_recurrence_filter_isolates_each_view(client, auth):
+    add(client, auth, "One-off", "2026-10-21T09:00")
+    add(client, auth, "Daily", "2026-10-01T08:00", recurrence="daily")
+    add(client, auth, "Weekly", "2026-10-07T10:00", recurrence="weekly")
+    add(client, auth, "Monthly", "2026-10-05T11:00", recurrence="monthly")
+    add(client, auth, "Yearly", "2020-10-21T12:00", recurrence="yearly")
+
+    assert [o["title"] for o in dash(client, auth, "day", "2026-10-21", recurrence="daily")["occurrences"]] == ["Daily"]
+    assert [o["title"] for o in dash(client, auth, "week", "2026-10-21", recurrence="weekly")["occurrences"]] == ["Weekly"]
+    assert [o["title"] for o in dash(client, auth, "month", "2026-10-21", recurrence="monthly")["occurrences"]] == ["Monthly"]
+    assert [o["title"] for o in dash(client, auth, "year", "2026-10-21", recurrence="yearly")["occurrences"]] == ["Yearly"]
+
+
+def test_daily_view_shows_any_recurring_reminder_due_today(client, auth):
+    # 2026-10-19 is a Monday.
+    add(client, auth, "One-off", "2026-10-19T12:00")
+    add(client, auth, "Daily", "2026-10-01T08:00", recurrence="daily")
+    add(client, auth, "Weekly", "2026-10-05T09:00", recurrence="weekly")
+    add(client, auth, "Monthly", "2026-09-19T10:00", recurrence="monthly")
+    add(client, auth, "Yearly", "2020-10-19T11:00", recurrence="yearly")
+
+    daily = dash(client, auth, "day", "2026-10-19", recurring_only="true")
+    assert [o["title"] for o in daily["occurrences"]] == ["Daily", "Weekly", "Monthly", "Yearly"]
+
+    # The cadence-specific views stay isolated.
+    assert [o["title"] for o in dash(client, auth, "week", "2026-10-19", recurrence="weekly")["occurrences"]] == ["Weekly"]
+    assert [o["title"] for o in dash(client, auth, "month", "2026-10-19", recurrence="monthly")["occurrences"]] == ["Monthly"]
+
+
+def test_calendar_only_shows_one_time_reminders(client, auth):
+    add(client, auth, "One-off", "2026-10-21T09:00")
+    add(client, auth, "Daily", "2026-10-01T08:00", recurrence="daily")
+    add(client, auth, "Weekly", "2026-10-07T10:00", recurrence="weekly")
+    add(client, auth, "Monthly", "2026-10-05T11:00", recurrence="monthly")
+
+    calendar = dash(client, auth, "month", "2026-10-01", recurrence="none")
+    assert titles_and_days(calendar) == [("One-off", "2026-10-21")]
+
+
+def test_year_range(client, auth):
+    d = dash(client, auth, "year", "2026-10-21")
+    assert (d["range_start"], d["range_end"]) == ("2026-01-01", "2026-12-31")
 
 
 # ---- CRUD & isolation ----

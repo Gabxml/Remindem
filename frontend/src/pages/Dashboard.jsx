@@ -2,11 +2,20 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
 import { addDays, describeRepeat, formatTime, fromISO, periodTitle, startOfWeek, toISO } from '../dates';
 
-const CARDS = [
-  { view: 'day', title: 'Daily reminders', empty: 'Nothing planned for this day.' },
-  { view: 'week', title: 'Weekly reminders', empty: 'Nothing planned this week.' },
-  { view: 'month', title: 'Monthly reminders', empty: 'Nothing planned this month.' },
+const VIEWS = [
+  { view: 'day', recurrence: 'daily', label: 'Daily', empty: 'No recurring reminders due today.' },
+  { view: 'week', recurrence: 'weekly', label: 'Weekly', empty: 'No weekly reminders this week.' },
+  { view: 'month', recurrence: 'monthly', label: 'Monthly', empty: 'No monthly reminders this month.' },
+  { view: 'year', recurrence: 'yearly', label: 'Yearly', empty: 'No yearly reminders this year.' },
 ];
+
+// Daily is the "due today" view: every recurring reminder that falls on the
+// selected day, regardless of whether it repeats daily, weekly, monthly or yearly.
+function periodFilter(view) {
+  return view.recurrence === 'daily'
+    ? 'recurring_only=true'
+    : `recurrence=${view.recurrence}`;
+}
 
 const firstOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1);
 
@@ -17,28 +26,30 @@ function groupByDay(occurrences = []) {
 }
 
 export default function Dashboard({ refreshKey, onEdit }) {
-  const [selected, setSelected] = useState(() => new Date()); // drives the three cards
+  const [active, setActive] = useState(VIEWS[0]); // recurring category + its period
+  const [selected, setSelected] = useState(() => new Date()); // drives the recurring card
   const [viewMonth, setViewMonth] = useState(() => firstOfMonth(new Date())); // drives the calendar
-  const [cards, setCards] = useState(null); // { day, week, month }
+  const [card, setCard] = useState(null);
   const [calendar, setCalendar] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
+    setCard(null);
     const on = toISO(selected);
-    Promise.all(CARDS.map((c) => api.get(`/dashboard?view=${c.view}&on=${on}`)))
-      .then(([day, week, month]) => {
+    api.get(`/dashboard?view=${active.view}&on=${on}&${periodFilter(active)}`)
+      .then((data) => {
         if (cancelled) return;
-        setCards({ day, week, month });
+        setCard(data);
         setError('');
       })
       .catch((err) => !cancelled && setError(err.message));
     return () => { cancelled = true; };
-  }, [selected, refreshKey]);
+  }, [active, selected, refreshKey]);
 
   useEffect(() => {
     let cancelled = false;
-    api.get(`/dashboard?view=month&on=${toISO(viewMonth)}`)
+    api.get(`/dashboard?view=month&on=${toISO(viewMonth)}&recurrence=none`)
       .then((data) => !cancelled && setCalendar(data))
       .catch((err) => !cancelled && setError(err.message));
     return () => { cancelled = true; };
@@ -64,23 +75,21 @@ export default function Dashboard({ refreshKey, onEdit }) {
 
       <div className="dashboard-grid">
         <div className="cards">
-          {CARDS.map((c) => (
-            <ReminderCard
-              key={c.view}
-              card={c}
-              subtitle={periodTitle(c.view, selected)}
-              data={cards?.[c.view]}
-              today={today}
-              onOpen={openEditor}
-            />
-          ))}
+          <ReminderCard
+            active={active}
+            subtitle={periodTitle(active.view, selected)}
+            data={card}
+            today={today}
+            onOpen={openEditor}
+            onChangeView={(recurrence) => setActive(VIEWS.find((v) => v.recurrence === recurrence))}
+          />
         </div>
 
         <section className="panel calendar-panel" aria-label="Calendar">
           <header className="panel-head">
             <div>
               <h2>Calendar</h2>
-              <p className="muted">{periodTitle('month', viewMonth)}</p>
+              <p className="muted">One-time reminders · {periodTitle('month', viewMonth)}</p>
             </div>
             <div className="stepper" role="group" aria-label="Change month">
               <button className="btn" aria-label="Previous month" onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1))}>‹</button>
@@ -101,25 +110,34 @@ export default function Dashboard({ refreshKey, onEdit }) {
   );
 }
 
-function ReminderCard({ card, subtitle, data, today, onOpen }) {
+function ReminderCard({ active, subtitle, data, today, onOpen, onChangeView }) {
   const items = data?.occurrences;
-  const grouped = card.view !== 'day';
+  const grouped = active.view !== 'day';
 
   return (
-    <section className="panel">
+    <section className="panel recurring-panel">
       <header className="panel-head">
         <div>
-          <h2>{card.title}</h2>
-          <p className="muted">{subtitle}</p>
+          <h2>Recurring reminders</h2>
+          <p className="muted">{active.label} · {subtitle}</p>
         </div>
-        {items && <span className="count">{items.length}</span>}
+        <div className="card-controls">
+          {items && <span className="count">{items.length}</span>}
+          <select
+            aria-label="Recurring reminder period"
+            value={active.recurrence}
+            onChange={(e) => onChangeView(e.target.value)}
+          >
+            {VIEWS.map((v) => <option key={v.recurrence} value={v.recurrence}>{v.label}</option>)}
+          </select>
+        </div>
       </header>
 
       <div className="panel-body">
         {!items ? (
           <p className="empty">Loading…</p>
         ) : items.length === 0 ? (
-          <p className="empty">{card.empty}</p>
+          <p className="empty">{active.empty}</p>
         ) : (
           <ul className="occurrences">
             {items.map((o, i) => {
@@ -137,7 +155,7 @@ function ReminderCard({ card, subtitle, data, today, onOpen }) {
                     <time className="time">{formatTime(o.occurs_at)}</time>
                     <span className="body">
                       <span className="title">{o.title}</span>
-                      {o.recurrence !== 'none' && <span className="repeat">{describeRepeat(o.recurrence, o.interval)}</span>}
+                      <span className="repeat">{describeRepeat(o.recurrence, o.interval)}</span>
                     </span>
                   </button>
                 </li>
@@ -178,7 +196,7 @@ function MonthGrid({ viewMonth, byDay, today, selectedISO, onPick }) {
           >
             <span className="cell-number">{d.getDate()}</span>
             {items.slice(0, 3).map((o) => (
-              <span key={`${o.reminder_id}-${o.occurs_at}`} className={`chip${o.recurrence !== 'none' ? ' recurring' : ''}`}>
+              <span key={`${o.reminder_id}-${o.occurs_at}`} className="chip">
                 {o.title}
               </span>
             ))}

@@ -94,7 +94,7 @@ class Occurrence(BaseModel):
 
 
 class DashboardOut(BaseModel):
-    view: Literal["day", "week", "month"]
+    view: Literal["day", "week", "month", "year"]
     range_start: dt.date  # first day shown (inclusive)
     range_end: dt.date  # last day shown (inclusive)
     occurrences: list[Occurrence]

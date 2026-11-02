@@ -15,6 +15,7 @@ export const startOfWeek = (d) => addDays(d, -((d.getDay() + 6) % 7)); // Monday
 export function shiftPeriod(view, anchor, dir) {
   if (view === 'day') return addDays(anchor, dir);
   if (view === 'week') return addDays(anchor, 7 * dir);
+  if (view === 'year') return new Date(anchor.getFullYear() + dir, 0, 1);
   return new Date(anchor.getFullYear(), anchor.getMonth() + dir, 1);
 }
 
@@ -29,6 +30,9 @@ export function periodTitle(view, anchor) {
     const a = start.toLocaleDateString([], { month: 'short', day: 'numeric' });
     const b = end.toLocaleDateString([], sameMonth ? { day: 'numeric' } : { month: 'short', day: 'numeric' });
     return `${a} – ${b}, ${end.getFullYear()}`;
+  }
+  if (view === 'year') {
+    return String(anchor.getFullYear());
   }
   return anchor.toLocaleDateString([], { month: 'long', year: 'numeric' });
 }

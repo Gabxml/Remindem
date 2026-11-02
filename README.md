@@ -18,6 +18,12 @@ pytest                                              # run the tests (uses an in-
 `MONGODB_URI` defaults to `mongodb://localhost:27017/remindem`.
 Set `SECRET_KEY` in your environment before deploying anywhere real.
 
+No MongoDB handy? Run the backend with an in-memory database (data is lost on restart):
+```bash
+REMINDEM_IN_MEMORY=1 uvicorn app.main:app --reload --port 8000
+```
+On Windows PowerShell, set it first: `$env:REMINDEM_IN_MEMORY = "1"`.
+
 ## Run the frontend
 ```bash
 cd frontend
