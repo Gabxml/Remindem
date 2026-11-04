@@ -133,7 +133,7 @@ def test_recurrence_filter_isolates_each_view(client, auth):
     assert [o["title"] for o in dash(client, auth, "year", "2026-10-21", recurrence="yearly")["occurrences"]] == ["Yearly"]
 
 
-def test_daily_view_shows_any_recurring_reminder_due_today(client, auth):
+def test_daily_view_shows_everything_due_today(client, auth):
     # 2026-10-19 is a Monday.
     add(client, auth, "One-off", "2026-10-19T12:00")
     add(client, auth, "Daily", "2026-10-01T08:00", recurrence="daily")
@@ -141,22 +141,26 @@ def test_daily_view_shows_any_recurring_reminder_due_today(client, auth):
     add(client, auth, "Monthly", "2026-09-19T10:00", recurrence="monthly")
     add(client, auth, "Yearly", "2020-10-19T11:00", recurrence="yearly")
 
-    daily = dash(client, auth, "day", "2026-10-19", recurring_only="true")
-    assert [o["title"] for o in daily["occurrences"]] == ["Daily", "Weekly", "Monthly", "Yearly"]
+    daily = dash(client, auth, "day", "2026-10-19")
+    assert [o["title"] for o in daily["occurrences"]] == ["Daily", "Weekly", "Monthly", "Yearly", "One-off"]
 
     # The cadence-specific views stay isolated.
     assert [o["title"] for o in dash(client, auth, "week", "2026-10-19", recurrence="weekly")["occurrences"]] == ["Weekly"]
     assert [o["title"] for o in dash(client, auth, "month", "2026-10-19", recurrence="monthly")["occurrences"]] == ["Monthly"]
 
 
-def test_calendar_only_shows_one_time_reminders(client, auth):
+def test_calendar_shows_one_time_and_yearly_reminders(client, auth):
     add(client, auth, "One-off", "2026-10-21T09:00")
     add(client, auth, "Daily", "2026-10-01T08:00", recurrence="daily")
     add(client, auth, "Weekly", "2026-10-07T10:00", recurrence="weekly")
     add(client, auth, "Monthly", "2026-10-05T11:00", recurrence="monthly")
+    add(client, auth, "Yearly", "2020-10-21T12:00", recurrence="yearly")
 
-    calendar = dash(client, auth, "month", "2026-10-01", recurrence="none")
-    assert titles_and_days(calendar) == [("One-off", "2026-10-21")]
+    calendar = dash(client, auth, "month", "2026-10-01", recurrence=["none", "yearly"])
+    assert titles_and_days(calendar) == [
+        ("One-off", "2026-10-21"),
+        ("Yearly", "2026-10-21"),
+    ]
 
 
 def test_year_range(client, auth):

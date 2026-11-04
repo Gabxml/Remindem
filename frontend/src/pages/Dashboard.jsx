@@ -3,18 +3,16 @@ import { api } from '../api';
 import { addDays, describeRepeat, formatTime, fromISO, periodTitle, startOfWeek, toISO } from '../dates';
 
 const VIEWS = [
-  { view: 'day', recurrence: 'daily', label: 'Daily', empty: 'No recurring reminders due today.' },
+  { view: 'day', recurrence: 'daily', label: 'Daily', empty: 'Nothing planned for this day.' },
   { view: 'week', recurrence: 'weekly', label: 'Weekly', empty: 'No weekly reminders this week.' },
   { view: 'month', recurrence: 'monthly', label: 'Monthly', empty: 'No monthly reminders this month.' },
   { view: 'year', recurrence: 'yearly', label: 'Yearly', empty: 'No yearly reminders this year.' },
 ];
 
-// Daily is the "due today" view: every recurring reminder that falls on the
-// selected day, regardless of whether it repeats daily, weekly, monthly or yearly.
+// Daily is the "due today" view: everything that falls on the selected day,
+// including one-time reminders and repeats of any cadence.
 function periodFilter(view) {
-  return view.recurrence === 'daily'
-    ? 'recurring_only=true'
-    : `recurrence=${view.recurrence}`;
+  return view.recurrence === 'daily' ? '' : `&recurrence=${view.recurrence}`;
 }
 
 const firstOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1);
@@ -37,7 +35,7 @@ export default function Dashboard({ refreshKey, onEdit }) {
     let cancelled = false;
     setCard(null);
     const on = toISO(selected);
-    api.get(`/dashboard?view=${active.view}&on=${on}&${periodFilter(active)}`)
+    api.get(`/dashboard?view=${active.view}&on=${on}${periodFilter(active)}`)
       .then((data) => {
         if (cancelled) return;
         setCard(data);
@@ -49,7 +47,7 @@ export default function Dashboard({ refreshKey, onEdit }) {
 
   useEffect(() => {
     let cancelled = false;
-    api.get(`/dashboard?view=month&on=${toISO(viewMonth)}&recurrence=none`)
+    api.get(`/dashboard?view=month&on=${toISO(viewMonth)}&recurrence=none&recurrence=yearly`)
       .then((data) => !cancelled && setCalendar(data))
       .catch((err) => !cancelled && setError(err.message));
     return () => { cancelled = true; };
@@ -89,7 +87,7 @@ export default function Dashboard({ refreshKey, onEdit }) {
           <header className="panel-head">
             <div>
               <h2>Calendar</h2>
-              <p className="muted">One-time reminders · {periodTitle('month', viewMonth)}</p>
+              <p className="muted">One-time + yearly reminders · {periodTitle('month', viewMonth)}</p>
             </div>
             <div className="stepper" role="group" aria-label="Change month">
               <button className="btn" aria-label="Previous month" onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1))}>‹</button>
@@ -118,8 +116,8 @@ function ReminderCard({ active, subtitle, data, today, onOpen, onChangeView }) {
     <section className="panel recurring-panel">
       <header className="panel-head">
         <div>
-          <h2>Recurring reminders</h2>
-          <p className="muted">{active.label} · {subtitle}</p>
+          <h2>{active.label} reminders</h2>
+          <p className="muted">{subtitle}</p>
         </div>
         <div className="card-controls">
           {items && <span className="count">{items.length}</span>}
@@ -196,7 +194,7 @@ function MonthGrid({ viewMonth, byDay, today, selectedISO, onPick }) {
           >
             <span className="cell-number">{d.getDate()}</span>
             {items.slice(0, 3).map((o) => (
-              <span key={`${o.reminder_id}-${o.occurs_at}`} className="chip">
+              <span key={`${o.reminder_id}-${o.occurs_at}`} className={`chip${o.recurrence !== 'none' ? ' recurring' : ''}`}>
                 {o.title}
               </span>
             ))}

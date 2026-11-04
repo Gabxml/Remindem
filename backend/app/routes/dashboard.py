@@ -30,10 +30,9 @@ def date_range(view: str, anchor: dt.date) -> tuple[dt.date, dt.date]:
 def get_dashboard(
     view: Literal["day", "week", "month", "year"] = "day",
     on: dt.date | None = Query(default=None, description="Any date inside the period; defaults to today"),
-    recurrence: Literal["none", "daily", "weekly", "monthly", "yearly"] | None = Query(
-        default=None, description="Only include reminders with this recurrence"
+    recurrence: list[Literal["none", "daily", "weekly", "monthly", "yearly"]] | None = Query(
+        default=None, description="Only include reminders with these recurrences"
     ),
-    recurring_only: bool = Query(default=False, description="Exclude one-time reminders"),
     user: User = Depends(get_current_user),
 ):
     first, last = date_range(view, on or dt.date.today())
@@ -41,10 +40,8 @@ def get_dashboard(
     range_end = dt.datetime.combine(last + dt.timedelta(days=1), dt.time.min)
 
     filters = {"user": user, "start_at__lt": range_end}
-    if recurrence is not None:
-        filters["recurrence"] = recurrence
-    elif recurring_only:
-        filters["recurrence__ne"] = "none"
+    if recurrence:
+        filters["recurrence__in"] = recurrence
     reminders = Reminder.objects(**filters)
 
     occurrences = [
