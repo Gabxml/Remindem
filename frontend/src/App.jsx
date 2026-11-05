@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from './auth.jsx';
+import { AUTH_DISABLED } from './dev.js';
 import { applyTheme, initialTheme } from './theme.js';
 import { toISO } from './dates.js';
 import Login from './pages/Login.jsx';
@@ -31,6 +32,7 @@ export default function App() {
         theme={theme}
         onToggleTheme={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
         onSignOut={() => { setPage('home'); signOut(); }}
+        showSignOut={!AUTH_DISABLED}
       />
 
       <main className="main">

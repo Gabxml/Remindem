@@ -65,6 +65,32 @@ export default function Dashboard({ refreshKey, onEdit }) {
     api.get(`/reminders/${occurrence.reminder_id}`).then(onEdit).catch((err) => setError(err.message));
   }
 
+  function markDone(setter, occurrence, done) {
+    setter((data) => data && {
+      ...data,
+      occurrences: data.occurrences.map((o) => (
+        o.reminder_id === occurrence.reminder_id && o.occurs_at === occurrence.occurs_at
+          ? { ...o, done }
+          : o
+      )),
+    });
+  }
+
+  function toggleDone(occurrence) {
+    const done = !occurrence.done;
+    // Update both cards optimistically so the calendar stays in sync.
+    markDone(setCard, occurrence, done);
+    markDone(setCalendar, occurrence, done);
+    api.post(`/reminders/${occurrence.reminder_id}/completion`, {
+      occurs_at: occurrence.occurs_at,
+      done,
+    }).catch((err) => {
+      setError(err.message);
+      markDone(setCard, occurrence, occurrence.done);
+      markDone(setCalendar, occurrence, occurrence.done);
+    });
+  }
+
   const today = toISO(new Date());
 
   return (
@@ -79,6 +105,7 @@ export default function Dashboard({ refreshKey, onEdit }) {
             data={card}
             today={today}
             onOpen={openEditor}
+            onToggleDone={toggleDone}
             onChangeView={(recurrence) => setActive(VIEWS.find((v) => v.recurrence === recurrence))}
           />
         </div>
@@ -108,7 +135,7 @@ export default function Dashboard({ refreshKey, onEdit }) {
   );
 }
 
-function ReminderCard({ active, subtitle, data, today, onOpen, onChangeView }) {
+function ReminderCard({ active, subtitle, data, today, onOpen, onToggleDone, onChangeView }) {
   const items = data?.occurrences;
   const grouped = active.view !== 'day';
 
@@ -149,13 +176,24 @@ function ReminderCard({ active, subtitle, data, today, onOpen, onChangeView }) {
                       {iso === today && <span className="today-tag">Today</span>}
                     </h3>
                   )}
-                  <button className="occurrence" onClick={() => onOpen(o)}>
-                    <time className="time">{formatTime(o.occurs_at)}</time>
-                    <span className="body">
-                      <span className="title">{o.title}</span>
-                      <span className="repeat">{describeRepeat(o.recurrence, o.interval)}</span>
-                    </span>
-                  </button>
+                  <div className={`occurrence-row${o.done ? ' done' : ''}`}>
+                    <button className="occurrence" onClick={() => onOpen(o)}>
+                      <time className="time">{formatTime(o.occurs_at)}</time>
+                      <span className="body">
+                        <span className="title">{o.title}</span>
+                        <span className="repeat">{describeRepeat(o.recurrence, o.interval)}</span>
+                      </span>
+                    </button>
+                    <button
+                      className={`done-toggle${o.done ? ' is-done' : ''}`}
+                      aria-pressed={o.done}
+                      aria-label={o.done ? `Mark ${o.title} as not done` : `Mark ${o.title} as done`}
+                      title={o.done ? 'Mark as not done' : 'Mark as done'}
+                      onClick={() => onToggleDone(o)}
+                    >
+                      {o.done ? '✓' : ''}
+                    </button>
+                  </div>
                 </li>
               );
             })}
@@ -194,7 +232,10 @@ function MonthGrid({ viewMonth, byDay, today, selectedISO, onPick }) {
           >
             <span className="cell-number">{d.getDate()}</span>
             {items.slice(0, 3).map((o) => (
-              <span key={`${o.reminder_id}-${o.occurs_at}`} className={`chip${o.recurrence !== 'none' ? ' recurring' : ''}`}>
+              <span
+                key={`${o.reminder_id}-${o.occurs_at}`}
+                className={`chip${o.recurrence !== 'none' ? ' recurring' : ''}${o.done ? ' done' : ''}`}
+              >
                 {o.title}
               </span>
             ))}

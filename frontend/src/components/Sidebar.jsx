@@ -4,7 +4,7 @@ const PAGES = [
   ['budget', 'Budget'],
 ];
 
-export default function Sidebar({ page, onNavigate, onAddReminder, theme, onToggleTheme, onSignOut }) {
+export default function Sidebar({ page, onNavigate, onAddReminder, theme, onToggleTheme, onSignOut, showSignOut = true }) {
   return (
     <aside className="sidebar">
       <div className="logo">Reminders</div>
@@ -23,11 +23,11 @@ export default function Sidebar({ page, onNavigate, onAddReminder, theme, onTogg
         <button className="nav-btn add" onClick={onAddReminder}>Add reminder</button>
       </nav>
 
-      <div className="sidebar-foot">
+      <div className={`sidebar-foot${showSignOut ? '' : ' two'}`}>
         <button aria-current={page === 'profile' ? 'page' : undefined} onClick={() => onNavigate('profile')}>
           Profile
         </button>
-        <button onClick={onSignOut}>Log out</button>
+        {showSignOut && <button onClick={onSignOut}>Log out</button>}
         <button onClick={onToggleTheme}>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</button>
       </div>
     </aside>

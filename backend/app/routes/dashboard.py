@@ -44,17 +44,20 @@ def get_dashboard(
         filters["recurrence__in"] = recurrence
     reminders = Reminder.objects(**filters)
 
-    occurrences = [
-        Occurrence(
-            reminder_id=r.id,
-            title=r.title,
-            description=r.description,
-            occurs_at=when,
-            recurrence=r.recurrence,
-            interval=r.interval,
-        )
-        for r in reminders
-        for when in occurrences_between(r, range_start, range_end)
-    ]
+    occurrences = []
+    for r in reminders:
+        completed = {value.replace(second=0, microsecond=0) for value in r.completed_at}
+        for when in occurrences_between(r, range_start, range_end):
+            occurrences.append(
+                Occurrence(
+                    reminder_id=r.id,
+                    title=r.title,
+                    description=r.description,
+                    occurs_at=when,
+                    recurrence=r.recurrence,
+                    interval=r.interval,
+                    done=when.replace(second=0, microsecond=0) in completed,
+                )
+            )
     occurrences.sort(key=lambda o: (o.occurs_at, o.title.lower()))
     return DashboardOut(view=view, range_start=first, range_end=last, occurrences=occurrences)

@@ -91,6 +91,17 @@ class Occurrence(BaseModel):
     occurs_at: dt.datetime
     recurrence: Recurrence
     interval: int
+    done: bool = False
+
+
+class CompletionIn(BaseModel):
+    occurs_at: dt.datetime
+    done: bool = True
+
+    @field_validator("occurs_at")
+    @classmethod
+    def drop_timezone(cls, v: dt.datetime) -> dt.datetime:
+        return v.replace(tzinfo=None, second=0, microsecond=0)
 
 
 class DashboardOut(BaseModel):

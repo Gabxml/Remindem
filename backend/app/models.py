@@ -6,6 +6,7 @@ from mongoengine import (
     DateTimeField,
     Document,
     IntField,
+    ListField,
     ReferenceField,
     StringField,
 )
@@ -39,6 +40,9 @@ class Reminder(Document):
     )
     interval = IntField(default=1, min_value=1, max_value=365)
     end_date = DateField(null=True)
+    # Times of individual occurrences the user marked as done. Per-occurrence,
+    # so finishing today's daily reminder doesn't finish the whole series.
+    completed_at = ListField(DateTimeField(), default=list)
     created_at = DateTimeField(default=_now)
 
     meta = {"collection": "reminders", "indexes": ["start_at", "user"]}

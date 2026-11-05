@@ -1,9 +1,12 @@
+import datetime as dt
+
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from ..deps import get_current_user
 from ..models import Reminder, User
-from ..schemas import ReminderIn, ReminderOut
+from ..recurrence import occurrences_between
+from ..schemas import CompletionIn, ReminderIn, ReminderOut
 
 router = APIRouter(prefix="/reminders", tags=["reminders"])
 
@@ -48,4 +51,28 @@ def update_reminder(
 @router.delete("/{reminder_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_reminder(reminder_id: str, user: User = Depends(get_current_user)):
     _get_owned(user, reminder_id).delete()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{reminder_id}/completion", status_code=status.HTTP_204_NO_CONTENT)
+def set_completion(
+    reminder_id: str,
+    data: CompletionIn,
+    user: User = Depends(get_current_user),
+):
+    """Mark (or unmark) one occurrence of a reminder as done."""
+    reminder = _get_owned(user, reminder_id)
+    when = data.occurs_at
+
+    # Only accept times this reminder actually fires at.
+    if not occurrences_between(reminder, when, when + dt.timedelta(seconds=1)):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Not an occurrence of this reminder")
+
+    completed = {value.replace(second=0, microsecond=0) for value in reminder.completed_at}
+    if data.done:
+        completed.add(when)
+    else:
+        completed.discard(when)
+    reminder.completed_at = sorted(completed)
+    reminder.save()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

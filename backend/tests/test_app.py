@@ -180,6 +180,43 @@ def test_update_and_delete(client, auth):
     assert dash(client, auth, "month", "2026-10-01")["occurrences"] == []
 
 
+# ---- per-occurrence completion ----
+
+def mark(client, auth, reminder_id, occurs_at, done=True):
+    return client.post(f"/api/reminders/{reminder_id}/completion", headers=auth,
+                       json={"occurs_at": occurs_at, "done": done})
+
+
+def test_completion_marks_only_one_occurrence(client, auth):
+    r = add(client, auth, "Daily", "2026-10-01T08:00", recurrence="daily")
+
+    assert mark(client, auth, r["id"], "2026-10-21T08:00").status_code == 204
+    done = {o["occurs_at"][:10]: o["done"]
+            for o in dash(client, auth, "week", "2026-10-21")["occurrences"]}
+    assert done["2026-10-20"] is False
+    assert done["2026-10-21"] is True
+    assert done["2026-10-22"] is False
+
+    # Unmarking restores it without touching the others.
+    assert mark(client, auth, r["id"], "2026-10-21T08:00", done=False).status_code == 204
+    assert not any(o["done"] for o in dash(client, auth, "week", "2026-10-21")["occurrences"])
+
+
+def test_completion_rejects_non_occurrences(client, auth):
+    r = add(client, auth, "Daily", "2026-10-01T08:00", recurrence="daily")
+    assert mark(client, auth, r["id"], "2026-10-21T09:00").status_code == 400
+    assert mark(client, auth, r["id"], "2026-10-21T08:00").status_code == 204
+
+    one_off = add(client, auth, "Once", "2026-10-21T09:00")
+    assert mark(client, auth, one_off["id"], "2026-10-22T09:00").status_code == 400
+
+
+def test_completion_requires_ownership(client, auth):
+    other = make_user(client, "b@example.com", "Ben")
+    r = add(client, auth, "Private", "2026-10-21T09:00")
+    assert mark(client, other, r["id"], "2026-10-21T09:00").status_code == 404
+
+
 def test_users_only_see_their_own(client, auth):
     other = make_user(client, "b@example.com", "Ben")
     r = add(client, auth, "Private", "2026-10-21T09:00")
