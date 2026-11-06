@@ -81,19 +81,18 @@ h1, h2, h3, p { margin: 0; }
 li:first-child > .group-label { margin-top: 0; }
 .group-label.is-today { color: var(--accent); }
 .today-tag { background: var(--accent); color: var(--accent-ink); border-radius: 99px; padding: 0 0.5rem; font-size: 0.75rem; }
-.occurrence { width: 100%; display: grid; grid-template-columns: 4.5rem 1fr; gap: 0.5rem; align-items: baseline; text-align: left; background: none; border: 1px solid var(--line); border-radius: var(--radius); padding: 0.5rem 0.7rem; cursor: pointer; }
-.occurrence:hover { border-color: var(--accent); background: var(--accent-soft); }
+.occurrence-row { display: flex; align-items: center; gap: 0.25rem; border: 1px solid var(--line); border-radius: var(--radius); padding: 0.15rem 0.35rem 0.15rem 0; }
+.occurrence-row:hover { border-color: var(--accent); background: var(--accent-soft); }
+.occurrence { flex: 1; min-width: 0; display: grid; grid-template-columns: 4.5rem 1fr; gap: 0.5rem; align-items: baseline; text-align: left; background: none; border: 0; padding: 0.35rem 0 0.35rem 0.7rem; cursor: pointer; }
 .time { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--accent); font-size: 0.9rem; }
 .body { display: flex; flex-direction: column; min-width: 0; }
 .title { font-weight: 600; overflow-wrap: anywhere; }
 .repeat { color: var(--repeat); font-size: 0.8rem; font-weight: 600; }
-.occurrence-row { display: flex; align-items: stretch; gap: 0.35rem; }
-.occurrence-row .occurrence { flex: 1; min-width: 0; }
 .occurrence-row.done .occurrence { opacity: 0.5; }
 .occurrence-row.done .title { text-decoration: line-through; }
-.done-toggle { flex: none; width: 2.4rem; background: none; border: 1px solid var(--line); border-radius: var(--radius); color: transparent; display: grid; place-items: center; font-weight: 700; cursor: pointer; }
-.done-toggle:hover { border-color: var(--accent); background: var(--accent-soft); }
-.done-toggle.is-done { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.done-toggle { flex: none; align-self: stretch; display: grid; place-items: center; width: 2.2rem; background: none; border: 0; border-radius: var(--radius); color: var(--muted); cursor: pointer; }
+.done-toggle:hover { color: var(--accent); background: var(--accent-soft); }
+.done-toggle.is-done { color: var(--accent); }
 
 /* calendar */
 .stepper { display: inline-flex; gap: 0.25rem; }
@@ -121,6 +120,8 @@ li:first-child > .group-label { margin-top: 0; }
 .row { display: flex; gap: 1rem; align-items: flex-end; }
 .grow { flex: 1; }
 .inline { display: flex; gap: 0.5rem; align-items: center; }
+.when input[type="date"] { flex: 1; min-width: 0; }
+.when input[type="time"] { flex: none; }
 .narrow { width: 4.5rem; }
 .actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
 .spacer { flex: 1; }

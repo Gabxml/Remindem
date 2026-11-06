@@ -14,9 +14,12 @@ export default function ReminderForm({ reminder, defaultDate, onClose, onSaved }
   const dialogRef = useRef(null);
   const editing = Boolean(reminder);
 
+  const initialStart = reminder ? reminder.start_at.slice(0, 16) : `${defaultDate}T09:00`;
+
   const [title, setTitle] = useState(reminder?.title ?? '');
   const [description, setDescription] = useState(reminder?.description ?? '');
-  const [startAt, setStartAt] = useState(reminder ? reminder.start_at.slice(0, 16) : `${defaultDate}T09:00`);
+  const [startDate, setStartDate] = useState(initialStart.slice(0, 10));
+  const [startTime, setStartTime] = useState(initialStart.slice(11, 16));
   const [recurrence, setRecurrence] = useState(reminder?.recurrence ?? 'none');
   const [interval, setInterval_] = useState(reminder?.interval ?? 1);
   const [endDate, setEndDate] = useState(reminder?.end_date ?? '');
@@ -35,7 +38,7 @@ export default function ReminderForm({ reminder, defaultDate, onClose, onSaved }
     const body = {
       title,
       description,
-      start_at: startAt,
+      start_at: `${startDate}T${startTime}`,
       recurrence,
       interval: Number(interval) || 1,
       end_date: recurrence !== 'none' && endDate ? endDate : null,
@@ -74,9 +77,25 @@ export default function ReminderForm({ reminder, defaultDate, onClose, onSaved }
         <label className="field">Notes
           <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} maxLength={2000} />
         </label>
-        <label className="field">When
-          <input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} required />
-        </label>
+        <div className="field">
+          <span>When</span>
+          <span className="inline when">
+            <input
+              type="date"
+              aria-label="Date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              required
+            />
+            <input
+              type="time"
+              aria-label="Time"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              required
+            />
+          </span>
+        </div>
 
         <div className="row">
           <label className="field grow">Repeat
@@ -96,7 +115,7 @@ export default function ReminderForm({ reminder, defaultDate, onClose, onSaved }
 
         {recurrence !== 'none' && (
           <label className="field">Stop repeating after
-            <input type="date" value={endDate} min={startAt.slice(0, 10)} onChange={(e) => setEndDate(e.target.value)} />
+            <input type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} />
             <span className="hint">Leave empty to repeat forever.{editing && ' Changes apply to every repeat.'}</span>
           </label>
         )}
